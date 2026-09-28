@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101827">
+  <meta name="description" content="AGNITI — a readable programming language, in your browser.">
+  <title>AGNITI Web IDE</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="AGNITI home"><img class="brand-logo" src="icons/agniti-logo.png" alt="AGNITI logo"><span>AGNITI <small>WEB IDE</small></span></a>
+    <div class="top-actions">
+      <span id="runtime-status" class="status-pill"><i></i> Loading Python runtime…</span>
+      <button id="install-btn" class="button secondary hidden">Install app</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <section class="welcome-row">
+      <div><p class="eyebrow">READABLE CODE. REAL EXECUTION.</p><h1>Build with <span>AGNITI.</span></h1><p class="subtitle">Write your AGNITI program, run it in your browser, and inspect the output.</p></div>
+      <div class="privacy-note"><span class="privacy-dot"></span><span>Runs locally in your browser<br><b>No compiler files are modified</b></span></div>
+    </section>
+
+    <section class="toolbar" aria-label="Editor actions">
+      <div class="file-label"><img class="file-icon-image" src="icons/agniti-file-icon.png" alt="AGNITI file icon"><input id="filename" value="untitled.agn" aria-label="File name"></div>
+      <div class="toolbar-actions">
+        <button id="new-btn" class="button secondary" title="New program">New</button>
+        <button id="open-btn" class="button secondary" title="Open an .agn file">Open</button>
+        <button id="save-btn" class="button secondary" title="Download current file">Save</button>
+        <span class="toolbar-divider"></span>
+        <button id="clear-btn" class="button secondary">Clear output</button>
+        <button id="run-btn" class="button run" disabled><span class="play-icon">▶</span> Run program</button>
+      </div>
+      <input id="file-picker" type="file" accept=".agn,.txt,text/plain" hidden>
+    </section>
+
+    <section class="main-grid">
+      <article class="panel editor-panel">
+        <div class="panel-heading"><div><span class="panel-dot purple"></span><b>Editor</b><span class="muted">AGNITI source</span></div><span id="line-count" class="muted">1 line</span></div>
+        <div class="editor-wrap"><div id="line-numbers" class="line-numbers" aria-hidden="true">1</div><textarea id="editor" spellcheck="false" autocapitalize="off" autocomplete="off" aria-label="AGNITI code editor"></textarea></div>
+        <div class="editor-footer"><span>Tip: press Enter after a step to add the next numbered step.</span><span id="cursor-info">Ln 1, Col 1</span></div>
+      </article>
+
+      <aside class="right-column">
+        <article class="panel output-panel">
+          <div class="panel-heading"><div><span class="panel-dot green"></span><b>Output</b></div><span id="run-time" class="muted">—</span></div>
+          <pre id="output" class="output" aria-live="polite">Welcome to AGNITI Web IDE.
+
+Press “Run program” to execute your code.</pre>
+          <div id="output-footer" class="output-footer"><span class="footer-dot"></span><span>Ready</span></div>
+        </article>
+        <details class="panel generated-panel">
+          <summary><span><span class="panel-dot orange"></span><b>Generated Python</b></span><span class="muted">View code</span></summary>
+          <pre id="generated-python" class="generated-code">Generated Python will appear here after you run your program.</pre>
+        </details>
+        <article class="panel help-panel"><div class="panel-heading"><div><span class="panel-dot blue"></span><b>Quick start</b></div></div><div class="help-content"><p>AGNITI programs begin with <code>START</code> and finish with <code>END</code>.</p><pre>START
+
+Step 1: Display "Hello, world!"
+
+END</pre><button id="example-btn" class="text-button">Load example <span>↗</span></button></div></article>
+      </aside>
+    </section>
+    <footer class="page-footer"><span>AGNITI Web IDE · Early preview</span><span>Built around the existing AGNITI compiler</span></footer>
+  </main>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

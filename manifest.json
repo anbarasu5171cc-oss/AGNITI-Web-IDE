@@ -1,0 +1,17 @@
+{
+  "name": "AGNITI Web IDE",
+  "short_name": "AGNITI",
+  "description": "A readable programming language IDE that runs in your browser.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0b1120",
+  "theme_color": "#101827",
+  "icons": [
+    {
+      "src": "icons/agniti-logo.png",
+      "sizes": "1080x1080",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
