@@ -20,7 +20,7 @@ python -m http.server 8000
 
 Then open `http://localhost:8000`.
 
-The first load needs internet access to download Pyodide from its CDN. After loading, the AGNITI pipeline runs inside the browser's Python/WebAssembly runtime. Program output and generated Python appear in separate panels.
+The first load needs internet access to download Pyodide from its CDN. After loading, the AGNITI pipeline runs inside the browser's Python/WebAssembly runtime. No Python server is required for the public website.
 
 ## Important limitations in this preview
 

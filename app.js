@@ -209,48 +209,79 @@ function getFilename() {
 
 
 // =====================================================
-// BACKEND CONNECTION
+// PYTHON-IN-THE-BROWSER RUNTIME
 // =====================================================
 
-async function checkBackend() {
-    try {
+let pyodide = null;
+let runtimeReady = false;
+let runtimeLoading = false;
 
-        const response =
-            await fetch(
-                "/api/health",
-                {
-                    method: "GET",
-                    cache: "no-store"
-                }
-            );
+const COMPILER_FILES = [
+    "compiler/lexer.py",
+    "compiler/parser.py",
+    "compiler/code_generator.py"
+];
+
+
+function appendRuntimeOutput(chunk) {
+    runtimeOutput += String(chunk);
+}
+
+
+async function loadCompilerFiles() {
+    for (const file of COMPILER_FILES) {
+        const response = await fetch(file, { cache: "no-store" });
 
         if (!response.ok) {
-            throw new Error(
-                "Backend unavailable"
-            );
+            throw new Error(`Unable to load ${file} (${response.status})`);
         }
 
-        const data =
-            await response.json();
+        const source = await response.text();
+        const target = `/home/pyodide/${file.split("/").pop()}`;
 
-        if (
-            !data ||
-            data.status !== "ok"
-        ) {
-            throw new Error(
-                "Invalid backend response"
-            );
-        }
+        pyodide.FS.writeFile(target, source);
+    }
+}
 
-        backendReady = true;
 
+async function initializePythonRuntime() {
+    if (runtimeReady) {
+        return;
+    }
+
+    if (runtimeLoading) {
+        return;
+    }
+
+    runtimeLoading = true;
+    runButton.disabled = true;
+
+    setStatus("Loading Python runtime...", "running");
+    setOutput(
+        "Loading the AGNITI Python compiler in your browser...\n\nThis may take a few seconds on the first visit.",
+        false,
+        "Loading"
+    );
+
+    try {
+        pyodide = await loadPyodide({
+            indexURL: "https://cdn.jsdelivr.net/pyodide/v0.29.3/full/"
+        });
+
+        await loadCompilerFiles();
+
+        await pyodide.runPythonAsync(`
+import sys
+sys.path.insert(0, "/home/pyodide")
+from lexer import Lexer
+from parser import Parser
+from code_generator import CodeGenerator
+`);
+
+        runtimeReady = true;
         runButton.disabled = false;
 
-        setStatus(
-            "Backend ready",
-            "ready"
-        );
-
+        setStatus("Python runtime ready", "ready");
         setOutput(
             "Welcome to AGNITI Web IDE.\n\nPress “Run program” to execute your code.",
             false,
@@ -258,23 +289,94 @@ async function checkBackend() {
         );
 
     } catch (error) {
-
-        backendReady = false;
-
+        runtimeReady = false;
         runButton.disabled = true;
 
-        setStatus(
-            "Backend unavailable",
-            "error"
+        setStatus("Python runtime failed", "error");
+        setOutput(
+            `Unable to start the browser Python runtime.\n\n${error.message}`,
+            true,
+            "Runtime error"
         );
 
-        setOutput(
-            "Cannot connect to the AGNITI Python backend.\n\nStart server.py and reload this page.",
-            true,
-            "Backend unavailable"
-        );
+    } finally {
+        runtimeLoading = false;
     }
 }
+
+
+async function runInBrowser(source) {
+    runtimeOutput = "";
+    runtimeError = "";
+
+    pyodide.setStdout({
+        raw: value => {
+            runtimeOutput += String.fromCharCode(value);
+        }
+    });
+
+    pyodide.setStderr({
+        raw: value => {
+            runtimeError += String.fromCharCode(value);
+        }
+    });
+
+    pyodide.setStdin({
+        stdin: () => {
+            const value = window.prompt("AGNITI input");
+
+            if (value === null) {
+                return null;
+            }
+
+            return `${value}\n`;
+        }
+    });
+
+    try {
+        pyodide.globals.set("AGNITI_SOURCE", source);
+
+        await pyodide.runPythonAsync(`
+source = AGNITI_SOURCE
+
+tokens = Lexer(source).tokenize()
+ast = Parser(tokens).parse()
+generated_python = CodeGenerator(ast).generate()
+
+exec(
+    compile(generated_python, "<AGNITI>", "exec"),
+    {}
+)
+`);
+
+        return {
+            output: runtimeOutput,
+            error: runtimeError,
+            success: true
+        };
+
+    } catch (error) {
+        return {
+            output: runtimeOutput,
+            error: runtimeError || String(error),
+            success: false
+        };
+
+    } finally {
+        pyodide.setStdout({});
+        pyodide.setStderr({});
+        pyodide.setStdin({});
+    }
+}
+
+
+// Runtime output buffers.
+let runtimeOutput = "";
+let runtimeError = "";
+
+
+// Start the browser runtime immediately.
+initializePythonRuntime();
 
 
 // =====================================================
@@ -411,11 +513,11 @@ runButton.addEventListener(
     "click",
     async () => {
 
-        if (!backendReady) {
+        if (!runtimeReady) {
             setOutput(
-                "AGNITI backend is not available.",
+                "Python runtime is still loading. Please wait a moment and try again.",
                 true,
-                "Backend unavailable"
+                "Runtime not ready"
             );
             return;
         }
@@ -439,19 +541,16 @@ runButton.addEventListener(
 
         runButton.disabled = true;
 
-
         setStatus(
             "Running...",
             "running"
         );
 
-
         setOutput(
-            "Running AGNITI program...",
+            "Running AGNITI program in your browser...",
             false,
             "Running"
         );
-
 
         runTime.textContent = "—";
 
@@ -462,50 +561,23 @@ runButton.addEventListener(
 
         try {
 
-            const response =
-                await fetch(
-                    "/api/run",
-                    {
-                        method: "POST",
+            const result =
+                await runInBrowser(source);
 
-                        headers: {
-                            "Content-Type":
-                                "application/json"
-                        },
-
-                        body: JSON.stringify({
-                            source: source
-                        })
-                    }
-                );
-
-
-            const data =
-                await response.json();
-
-
-            const clientElapsed =
+            const elapsed =
                 performance.now() - started;
 
 
-            if (
-                !response.ok ||
-                !data.success
-            ) {
-
-                const message =
-                    data.error ||
-                    data.output ||
-                    "AGNITI program failed.";
+            if (!result.success) {
 
                 setOutput(
-                    message,
+                    result.error || result.output || "AGNITI program failed.",
                     true,
                     "Failed"
                 );
 
                 runTime.textContent =
-                    `${clientElapsed.toFixed(2)} ms`;
+                    `${elapsed.toFixed(2)} ms`;
 
                 setStatus(
                     "Execution failed",
@@ -516,25 +588,14 @@ runButton.addEventListener(
             }
 
 
-            // Only backend output is shown.
-            // Generated Python is NEVER displayed.
-
             setOutput(
-                data.output || "",
+                result.output || "",
                 false,
                 "Finished"
             );
 
-
-            const backendTime =
-                typeof data.runtime_ms === "number"
-                    ? data.runtime_ms
-                    : clientElapsed;
-
-
             runTime.textContent =
-                `${backendTime.toFixed(2)} ms`;
-
+                `${elapsed.toFixed(2)} ms`;
 
             setStatus(
                 "Program finished",
@@ -544,20 +605,18 @@ runButton.addEventListener(
         } catch (error) {
 
             setOutput(
-                `Backend connection error: ${error.message}`,
+                `Execution error: ${error.message}`,
                 true,
-                "Connection error"
+                "Execution error"
             );
 
             setStatus(
-                "Backend unavailable",
+                "Execution failed",
                 "error"
             );
 
         } finally {
-
-            runButton.disabled =
-                !backendReady;
+            runButton.disabled = !runtimeReady;
         }
     }
 );
@@ -583,7 +642,7 @@ document
                 "—";
 
             setStatus(
-                "Backend ready",
+                "Python runtime ready",
                 "ready"
             );
         }
